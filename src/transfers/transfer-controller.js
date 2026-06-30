@@ -4,13 +4,27 @@ import Account from '../accounts/account-model.js';
 
 export const getTransfers = async (req, res) => {
   try {
-
     const { page = 1, limit = 10, account } = req.query;
 
-    const query = {};
+    // Obtener todas las cuentas del usuario
+    const userAccounts = await Account.find({ user: req.user._id }).select('_id');
+    const userAccountIds = userAccounts.map(acc => acc._id);
 
-    // Si se envía un ID de cuenta, filtra por esa cuenta
+    const query = {
+      $or: [
+        { fromAccount: { $in: userAccountIds } },
+        { toAccount: { $in: userAccountIds } }
+      ]
+    };
+
+    // Si se envía un ID de cuenta, validar que pertenezca al usuario y filtrar
     if (account) {
+      if (!userAccountIds.some(id => id.toString() === account.toString())) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para ver esta cuenta'
+        });
+      }
       query.$or = [
         { fromAccount: account },
         { toAccount: account }
@@ -48,7 +62,6 @@ export const createTransfer = async (req, res) => {
   session.startTransaction();
 
   try {
-
     const { fromAccount, toAccount, amount } = req.body;
 
     if (amount <= 0) {
@@ -60,6 +73,11 @@ export const createTransfer = async (req, res) => {
 
     if (!originAccount || !destinationAccount) {
       throw new Error('Cuenta no encontrada');
+    }
+
+    // Validar que la cuenta de origen pertenezca al usuario autenticado
+    if (originAccount.user.toString() !== req.user._id.toString()) {
+      throw new Error('No puedes transferir desde una cuenta que no es tuya');
     }
 
     if (!originAccount.isActive || !destinationAccount.isActive) {
@@ -96,7 +114,6 @@ export const createTransfer = async (req, res) => {
     });
 
   } catch (error) {
-
     await session.abortTransaction();
     session.endSession();
 

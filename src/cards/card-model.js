@@ -3,7 +3,13 @@
 import mongoose, { mongo } from 'mongoose';
 
 const cardSchema = new mongoose.Schema({
-        ownerCard: {
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: [true, 'El usuario propietario es obligatorio']
+    },
+
+    ownerCard: {
         type: String,
         required: true,
         trim: true,

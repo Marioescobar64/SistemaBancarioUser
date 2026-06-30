@@ -20,12 +20,13 @@ export const verifyToken = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.uid);
+    // authservice stores the user id in the 'sub' field
+    const user = await User.findOne({ authServiceId: decoded.sub });
 
     if (!user || !user.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Usuario no autorizado',
+        message: 'Usuario no autorizado o perfil local no creado',
       });
     }
 
@@ -39,22 +40,4 @@ export const verifyToken = async (req, res, next) => {
       error: error.message,
     });
   }
-};
-
-// ============================
-// AUTORIZACIÓN POR ROL
-// ============================
-
-export const authorizeRoles = (...roles) => {
-  return (req, res, next) => {
-
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'No tienes permisos para acceder a este recurso',
-      });
-    }
-
-    next();
-  };
 };

@@ -3,6 +3,12 @@
 import mongoose from 'mongoose';
 
 const userSchema = new mongoose.Schema({
+  authServiceId: {
+    type: String,
+    required: [true, 'El ID de authservice es obligatorio'],
+    unique: true,
+  },
+
   name: {
     type: String,
     required: [true, 'El nombre es obligatorio'],
@@ -17,17 +23,6 @@ const userSchema = new mongoose.Schema({
     trim: true
   },
 
-  password: {
-    type: String,
-    required: [true, 'La contraseña es obligatoria']
-  },
-
-  role: {
-    type: String,
-    enum: ['ADMIN', 'USER'],
-    default: 'USER'
-  },
-
   isActive: {
     type: Boolean,
     default: true
@@ -37,7 +32,6 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
 
 export default mongoose.model('User', userSchema);

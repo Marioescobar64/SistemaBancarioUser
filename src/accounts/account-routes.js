@@ -2,82 +2,28 @@
 
 import { Router } from 'express';
 import {
-  createAccount,
   getAccounts,
-  getAccountById,
-  updateAccount,
-  changeAccountStatus,
-  depositMoney,
-  withdrawMoney
+  getAccountById
 } from './account-controller.js';
 
-import {
-  validateCreateAccount,
-  validateUpdateAccount,
-  validateAccountStatusChange,
-  validateGetAccountById
-} from '../../middlewares/account-validation.js';
-
-import { verifyToken, authorizeRoles } from '../../middlewares/auth-middleware.js';
+import { validateGetAccountById } from '../../middlewares/account-validation.js';
+import { verifyToken } from '../../middlewares/auth-middleware.js';
 
 const router = Router();
 
-// Crear cuenta (ADMIN)
-router.post(
-  '/',
-  verifyToken,
-  authorizeRoles('ADMIN', 'USER'),
-  validateCreateAccount,
-  createAccount
-);
-
-// Obtener cuentas
+// Obtener cuentas del usuario autenticado
 router.get(
   '/',
   verifyToken,
-  authorizeRoles('ADMIN', 'USER'),
   getAccounts
 );
 
-// Obtener por ID
+// Obtener detalle de cuenta
 router.get(
   '/:id',
   verifyToken,
-  authorizeRoles('ADMIN', 'USER'),
   validateGetAccountById,
   getAccountById
-);
-
-// Actualizar
-router.put(
-  '/:id',
-  verifyToken,
-  authorizeRoles('ADMIN'),
-  validateUpdateAccount,
-  updateAccount
-);
-
-// Activar / Desactivar
-router.patch(
-  '/status/:id',
-  verifyToken,
-  authorizeRoles('ADMIN'),
-  validateAccountStatusChange,
-  changeAccountStatus
-);
-
-router.patch(
-  '/deposit/:id',
-  verifyToken,
-  authorizeRoles('ADMIN', 'USER'),
-  depositMoney
-);
-
-router.patch(
-  '/withdraw/:id',
-  verifyToken,
-  authorizeRoles('ADMIN', 'USER'),
-  withdrawMoney
 );
 
 export default router;

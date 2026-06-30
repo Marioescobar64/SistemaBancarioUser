@@ -3,7 +3,7 @@
 import { Router } from 'express';
 import { createTransfer, getTransfers } from './transfer-controller.js';
 import { validateCreateTransferencia } from '../../middlewares/transfer-validation.js';
-import { verifyToken, authorizeRoles } from '../../middlewares/auth-middleware.js';
+import { verifyToken } from '../../middlewares/auth-middleware.js';
 
 const router = Router();
 
@@ -11,7 +11,6 @@ const router = Router();
 router.post(
   '/',
   verifyToken,
-  authorizeRoles('USER', 'ADMIN'),
   validateCreateTransferencia,
   createTransfer
 );
@@ -20,7 +19,6 @@ router.post(
 router.get(
   '/',
   verifyToken,
-  authorizeRoles('USER', 'ADMIN'),
   getTransfers
 );
 

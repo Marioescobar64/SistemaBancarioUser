@@ -1,24 +1,15 @@
 'use strict';
 
 import Loan from './loan-model.js';
-import User from '../users/user-model.js';
 
 export const createLoan = async (req, res) => {
   try {
-
-    const { user, amount, interestRate } = req.body;
-
-    const userExists = await User.findById(user);
-
-    if (!userExists) {
-      return res.status(404).json({
-        success: false,
-        message: 'El usuario no existe'
-      });
-    }
+    // El usuario solo puede crear préstamos a su propio nombre
+    const { amount, interestRate } = req.body;
+    const userId = req.user._id;
 
     const loan = new Loan({
-      user,
+      user: userId,
       amount,
       interestRate,
       status: 'PENDING'
@@ -28,15 +19,14 @@ export const createLoan = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Préstamo creado correctamente',
+      message: 'Préstamo solicitado correctamente',
       data: loan
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
-      message: 'Error al crear préstamo',
+      message: 'Error al solicitar préstamo',
       error: error.message
     });
   }
@@ -44,18 +34,14 @@ export const createLoan = async (req, res) => {
 
 export const getLoans = async (req, res) => {
   try {
-
     const { page = 1, limit = 10, status } = req.query;
 
-    const filter = {};
+    const filter = {
+      user: req.user._id
+    };
 
     if (status) {
       filter.status = status;
-    }
-
-    // Si es USER, solo ve sus préstamos
-    if (req.user.role === 'USER') {
-      filter.user = req.user._id;
     }
 
     const loans = await Loan.find(filter)
@@ -78,7 +64,6 @@ export const getLoans = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: 'Error al obtener préstamos',
@@ -89,7 +74,6 @@ export const getLoans = async (req, res) => {
 
 export const getLoanById = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     const loan = await Loan.findById(id)
@@ -102,11 +86,7 @@ export const getLoanById = async (req, res) => {
       });
     }
 
-    // 🔥 USER no puede ver préstamos ajenos
-    if (
-      req.user.role === 'USER' &&
-      loan.user._id.toString() !== req.user._id.toString()
-    ) {
+    if (loan.user._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'No tienes permiso para ver este préstamo'
@@ -119,82 +99,9 @@ export const getLoanById = async (req, res) => {
     });
 
   } catch (error) {
-
     res.status(500).json({
       success: false,
       message: 'Error al obtener préstamo',
-      error: error.message
-    });
-  }
-};
-
-export const updateLoan = async (req, res) => {
-  try {
-
-    const { id } = req.params;
-    const data = req.body;
-
-    // 🔒 Evitar modificar status desde aquí
-    delete data.status;
-
-    const loan = await Loan.findByIdAndUpdate(
-      id,
-      data,
-      { new: true }
-    ).populate('user', '-password');
-
-    if (!loan) {
-      return res.status(404).json({
-        success: false,
-        message: 'Préstamo no encontrado'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Préstamo actualizado correctamente',
-      data: loan
-    });
-
-  } catch (error) {
-
-    res.status(500).json({
-      success: false,
-      message: 'Error al actualizar préstamo',
-      error: error.message
-    });
-  }
-};
-
-export const changeLoanStatus = async (req, res) => {
-  try {
-
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const loan = await Loan.findById(id);
-
-    if (!loan) {
-      return res.status(404).json({
-        success: false,
-        message: 'Préstamo no encontrado'
-      });
-    }
-
-    loan.status = status;
-    await loan.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Estado del préstamo actualizado',
-      data: loan
-    });
-
-  } catch (error) {
-
-    res.status(500).json({
-      success: false,
-      message: 'Error al cambiar estado del préstamo',
       error: error.message
     });
   }
