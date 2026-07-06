@@ -32,13 +32,15 @@ export const getTransfers = async (req, res) => {
     }
 
     const transfers = await Transfer.find(query)
-      .populate('fromAccount', 'accountNumber balance')
-      .populate('toAccount', 'accountNumber balance')
+      .populate('fromAccount', 'accountNumber balance currency')
+      .populate('toAccount', 'accountNumber balance currency')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
     const total = await Transfer.countDocuments(query);
+
+    console.log("Transfers sent to frontend:", JSON.stringify(transfers[0], null, 2));
 
     res.status(200).json({
       success: true,
@@ -58,21 +60,36 @@ export const getTransfers = async (req, res) => {
 };
 
 export const createTransfer = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { fromAccount, toAccount, amount } = req.body;
 
-    if (amount <= 0) {
-      throw new Error('El monto debe ser mayor a 0');
+    // Validación básica de entrada
+    if (!fromAccount || !toAccount || !amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Datos de transferencia incompletos o inválidos'
+      });
     }
 
-    const originAccount = await Account.findById(fromAccount).session(session);
-    const destinationAccount = await Account.findById(toAccount).session(session);
+    let originAccount = await Account.findById(fromAccount);
+    let destinationAccount;
+
+    if (mongoose.Types.ObjectId.isValid(toAccount)) {
+      destinationAccount = await Account.findById(toAccount);
+    }
+    if (!destinationAccount) {
+      let searchAccount = toAccount;
+      // Limpiar espacios y guiones
+      const cleanInput = typeof toAccount === 'string' ? toAccount.replace(/[\s-]/g, '') : '';
+      // Si tiene exactamente 16 dígitos, formatear como XXXX-XXXX-XXXX-XXXX
+      if (cleanInput.length === 16) {
+        searchAccount = `${cleanInput.substring(0,4)}-${cleanInput.substring(4,8)}-${cleanInput.substring(8,12)}-${cleanInput.substring(12,16)}`;
+      }
+      destinationAccount = await Account.findOne({ accountNumber: searchAccount });
+    }
 
     if (!originAccount || !destinationAccount) {
-      throw new Error('Cuenta no encontrada');
+      throw new Error('Cuenta origen o destino no encontrada');
     }
 
     // Validar que la cuenta de origen pertenezca al usuario autenticado
@@ -80,47 +97,66 @@ export const createTransfer = async (req, res) => {
       throw new Error('No puedes transferir desde una cuenta que no es tuya');
     }
 
-    if (!originAccount.isActive || !destinationAccount.isActive) {
-      throw new Error('Una de las cuentas está inactiva');
+    // Verificar que ambas cuentas estén activas
+    if (!originAccount.isActive) {
+      throw new Error('La cuenta de origen está inactiva');
+    }
+    
+    if (!destinationAccount.isActive) {
+      throw new Error('La cuenta destino está inactiva');
     }
 
+    let convertedAmount = amount;
+    let appliedRate = null;
+
+    // Lógica multi-moneda
+    if (originAccount.currency !== destinationAccount.currency) {
+      throw new Error('Las transferencias entre diferentes monedas no están habilitadas por ahora.');
+    }
+
+    // Verificar saldo
     if (originAccount.balance < amount) {
-      throw new Error('Saldo insuficiente');
+      throw new Error('Fondos insuficientes');
     }
 
-    // Restar saldo
+    // Limite diario (ejemplo simple)
+    if (amount > originAccount.dailyTransferLimit) {
+      throw new Error(`El monto excede el límite diario de transferencia (${originAccount.dailyTransferLimit})`);
+    }
+
+    // Ejecutar la transferencia
     originAccount.balance -= amount;
+    destinationAccount.balance += convertedAmount;
 
-    // Sumar saldo
-    destinationAccount.balance += amount;
+    await originAccount.save();
+    await destinationAccount.save();
 
-    await originAccount.save({ session });
-    await destinationAccount.save({ session });
-
-    const transfer = await Transfer.create([{
-      fromAccount,
-      toAccount,
+    // Registrar la transferencia
+    const transfer = new Transfer({
+      fromAccount: originAccount._id,
+      toAccount: destinationAccount._id,
       amount,
-      status: 'COMPLETED'
-    }], { session });
+      convertedAmount: appliedRate ? convertedAmount : undefined,
+      exchangeRate: appliedRate,
+      status: 'COMPLETADA',
+      referenceNumber: `TRF-${Date.now().toString().slice(-6)}`
+    });
 
-    await session.commitTransaction();
-    session.endSession();
+    await transfer.save();
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
       message: 'Transferencia realizada exitosamente',
-      data: transfer[0],
+      data: transfer
     });
 
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
+    console.error("Transfer error:", error);
 
     res.status(400).json({
       success: false,
       message: 'Error en la transferencia',
-      error: error.message,
+      error: error.message
     });
   }
 };

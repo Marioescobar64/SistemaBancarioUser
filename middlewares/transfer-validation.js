@@ -16,8 +16,8 @@ export const validateCreateTransferencia = [
   body('toAccount')
     .notEmpty()
     .withMessage('La cuenta de destino es obligatoria')
-    .isMongoId()
-    .withMessage('ID de cuenta de destino inválido'),
+    .isString()
+    .withMessage('Formato de cuenta destino inválido'),
 
   body('amount')
     .notEmpty()

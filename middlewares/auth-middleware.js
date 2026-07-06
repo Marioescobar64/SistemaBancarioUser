@@ -21,12 +21,22 @@ export const verifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // authservice stores the user id in the 'sub' field
-    const user = await User.findOne({ authServiceId: decoded.sub });
+    let user = await User.findOne({ authServiceId: decoded.sub });
 
-    if (!user || !user.isActive) {
+    if (!user) {
+      // Auto-crear perfil local (lazy sync) ya que el usuario pasó la validación del authservice
+      user = await User.create({
+        authServiceId: decoded.sub,
+        name: decoded.name || 'Usuario Nuevo',
+        email: decoded.email || `user_${decoded.sub}@local.app`,
+        isActive: true
+      });
+    }
+
+    if (!user.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Usuario no autorizado o perfil local no creado',
+        message: 'Usuario no autorizado o perfil local desactivado',
       });
     }
 

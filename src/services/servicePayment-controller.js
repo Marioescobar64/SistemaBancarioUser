@@ -35,72 +35,59 @@ export const getServicePayments = async (req, res) => {
 };
 
 export const payService = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const { accountId, serviceProvider, referenceNumber, amount } = req.body;
 
-    if (amount <= 0) {
-      throw new Error('El monto debe ser mayor a 0');
+    // Validación
+    if (!accountId || !serviceProvider || !referenceNumber || !amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Datos del servicio incompletos o monto inválido'
+      });
     }
 
-    const account = await Account.findById(accountId).session(session);
-    if (!account) {
-      throw new Error('Cuenta no encontrada');
+    const originAccount = await Account.findById(accountId);
+
+    if (!originAccount) {
+      throw new Error('Cuenta origen no encontrada');
     }
 
-    // Verificar propiedad de la cuenta
-    if (account.user.toString() !== req.user._id.toString()) {
+    if (originAccount.user.toString() !== req.user._id.toString()) {
       throw new Error('No puedes pagar desde una cuenta que no es tuya');
     }
 
-    if (!account.isActive) {
-      throw new Error('La cuenta está inactiva');
+    if (originAccount.balance < amount) {
+      throw new Error('Fondos insuficientes');
     }
 
-    // Services are typically paid in GTQ (Quetzales)
-    let convertedAmount = amount;
-    if (account.currency === 'USD') {
-      const rate = getExchangeRate();
-      convertedAmount = Math.round((amount / rate) * 100) / 100;
-    }
+    // Restar saldo
+    originAccount.balance -= amount;
+    await originAccount.save();
 
-    if (account.balance < convertedAmount) {
-      throw new Error('Fondos insuficientes para realizar el pago');
-    }
-
-    // Restar el saldo de la cuenta
-    account.balance -= convertedAmount;
-    await account.save({ session });
-
-    // Crear el registro del pago
-    const payment = await ServicePayment.create([{
-      account: account._id,
-      user: account.user,
+    // Crear registro de pago
+    const servicePayment = new ServicePayment({
+      account: originAccount._id,
+      user: req.user._id,
       serviceProvider,
       referenceNumber,
       amount,
-      currency: 'GTQ', // El recibo sale en GTQ
       status: 'COMPLETADO'
-    }], { session });
+    });
 
-    await session.commitTransaction();
-    session.endSession();
+    await servicePayment.save();
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: `Pago a ${serviceProvider} realizado exitosamente.`,
-      data: payment[0]
+      message: `Pago de ${serviceProvider} realizado exitosamente`,
+      data: servicePayment
     });
 
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
+    console.error("Service Payment Error:", error);
 
     res.status(400).json({
       success: false,
-      message: 'Error al procesar el pago de servicio',
+      message: 'Error al procesar el pago del servicio',
       error: error.message
     });
   }

@@ -11,6 +11,7 @@ import accountRoutes from '../src/accounts/account-routes.js';
 import loanRoutes from '../src/loans/loan-routes.js';
 import authRoutes from '../src/auth/auth-routes.js';
 import serviceRoutes from '../src/services/servicePayment-routes.js';
+import userRoutes from '../src/users/user-routes.js';
 
 const BASE_URL = '/veraff/v1';
 
@@ -39,6 +40,7 @@ const routes = (app) => {
     app.use(`${BASE_URL}/transfers`, transferRoutes);
     app.use(`${BASE_URL}/loans`, loanRoutes);
     app.use(`${BASE_URL}/services`, serviceRoutes);
+    app.use(`${BASE_URL}/users`, userRoutes);
 };
 
 const initServer = async () => {

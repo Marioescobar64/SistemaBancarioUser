@@ -5,6 +5,7 @@ import {
   getAccounts,
   getAccountById
 } from './account-controller.js';
+import { generateStatement } from './statement-controller.js';
 
 import { validateGetAccountById } from '../../middlewares/account-validation.js';
 import { verifyToken } from '../../middlewares/auth-middleware.js';
@@ -24,6 +25,13 @@ router.get(
   verifyToken,
   validateGetAccountById,
   getAccountById
+);
+
+// Generar estado de cuenta
+router.get(
+  '/:accountId/statement',
+  verifyToken,
+  generateStatement
 );
 
 export default router;
