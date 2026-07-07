@@ -22,3 +22,9 @@ process.on('uncaughtException', (reason, promise) => {
 console.log('Iniciando servidor...');
 initServer();
 
+
+// restart
+
+// restart 2
+
+// restart 3

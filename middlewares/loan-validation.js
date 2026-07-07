@@ -8,12 +8,6 @@ export const validateCreateLoan = [
     .isNumeric()
     .withMessage('El monto debe ser numérico'),
 
-  body('interestRate')
-    .notEmpty()
-    .withMessage('La tasa de interés es obligatoria')
-    .isNumeric()
-    .withMessage('Debe ser numérica'),
-
   checkValidators,
 ];
 
